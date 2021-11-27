@@ -1,5 +1,7 @@
 /*
-zeq beta 0.1 test test
+zeq alpha 0.1 
+short for ezeqiel
+but also z's sequencer
 1/0 and true/false are used interchangeably.
 --
 inlet   0   bang to advance sequences
@@ -128,7 +130,7 @@ function gridkey(m) { // general grid button functionality
     } else if (rx == 7 && ry == 15) { // play/pause button
         playing = !playing
         post('\n toggled playing')
-        outlet(0, 'bang')
+        outlet(0, !playing ? 1 : 0)
         if (!playing) {
             for (i=0;i<4;i++) { t[i].p = t[i].l }
         }
