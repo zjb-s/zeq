@@ -1,5 +1,5 @@
 /*
-zeq beta 0.1
+zeq beta 0.1 test change
 1/0 and true/false are used interchangeably.
 --
 inlet   0   bang to advance sequences
