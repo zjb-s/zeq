@@ -1,9 +1,6 @@
 /*
-<<<<<<< HEAD
-zeq beta 0.1 test change test change
-=======
+
 zeq beta 0.1 test test
->>>>>>> 20d819a7066c08473576c934f3ef59476570ea16
 1/0 and true/false are used interchangeably.
 --
 inlet   0   bang to advance sequences
