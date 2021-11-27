@@ -1,15 +1,6 @@
 /*
-<<<<<<< HEAD
-<<<<<<< HEAD
-zeq beta 0.1 test change test change
-=======
+
 zeq beta 0.1 test test
->>>>>>> 20d819a7066c08473576c934f3ef59476570ea16
-=======
-zeq alpha 0.1 
-short for ezeqiel
-but also z's sequencer
->>>>>>> b972f721dd5d6bb6a4e533bcfca07b324704db15
 1/0 and true/false are used interchangeably.
 --
 inlet   0   bang to advance sequences
@@ -185,36 +176,7 @@ function editStepSequences(x, y) {
             editStep.velocity = 127
             editStep.sample = activeTrack.qs
         } else {
-<<<<<<< HEAD
             editStep.on = true
-=======
-            rp = Number(m.split(' ')[0]) + Number(m.split(' ')[1] * 8)
-            t[a][rp] = !t[a][rp]
-            post('\n edit sequence ' + a)
-        }
-    } else if (ry == 2 && rx < 4) { // change track focus
-        a = rx
-        post('\n focus sequence ' + a)
-    } else if (ry == 2 && rx == 7) { // clear
-        if (mod.shift) { // clear all sequences
-            for (i=0;i<4;i++) {t[i] = templateSequence.slice()}
-        } else { // or just the active one
-            t[a] = templateSequence.slice()
-        }
-        post('\n clear sequence ' + a)
-    } else if (rx == 6 && ry == 2) { // randomize sequence
-        post('\n randomizing sequence')
-        for (i=0;i<16;i++) { t[a][i] = Math.random() >= 0.5 ? true : false }
-    } else if (rx < 4 && ry > 2 && ry < 8 && mod.rec) { // if recording, enter live notes on sample pads
-        t[rx].s[t[rx].p] = true // set current step to true
-        post('\n track sample key: track ' + rx + ', sample ' + Number(ry-3))
-    } else if (rx == 7 && ry == 15) { // play/pause button
-        playing = !playing
-        post('\n toggled playing')
-        outlet(0, !playing ? 1 : 0)
-        if (!playing) {
-            for (i=0;i<4;i++) { t[i].p = t[i].l }
->>>>>>> b972f721dd5d6bb6a4e533bcfca07b324704db15
         }
     }
     post(activeTrack.steps[0].on)
