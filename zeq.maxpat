@@ -40,13 +40,25 @@
 		"assistshowspatchername" : 0,
 		"boxes" : [ 			{
 				"box" : 				{
+					"id" : "obj-4",
+					"maxclass" : "message",
+					"numinlets" : 2,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 204.0, 85.0, 51.0, 22.0 ],
+					"text" : "bang"
+				}
+
+			}
+, 			{
+				"box" : 				{
 					"id" : "obj-3",
 					"maxclass" : "button",
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "bang" ],
 					"parameter_enable" : 0,
-					"patching_rect" : [ 316.0, 28.0, 24.0, 24.0 ]
+					"patching_rect" : [ 303.0, 12.0, 24.0, 24.0 ]
 				}
 
 			}
@@ -58,7 +70,7 @@
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 419.0, 45.0, 496.0, 50.0 ],
+					"patching_rect" : [ 419.0, 45.0, 513.0, 50.0 ],
 					"text" : "/monome/grid/led/level/map 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 4 4 4 4 0 0 0 0 4 4 4 4 0 0 0 0 4 4 4 4 0 0 0 0 4 4 4 4 0 0 0 0 4 4 4 4 0 0 0 0"
 				}
 
@@ -312,7 +324,7 @@
  ]
 					}
 ,
-					"patching_rect" : [ 32.0, 499.0, 84.0, 22.0 ],
+					"patching_rect" : [ 35.083333333333329, 518.0, 84.0, 22.0 ],
 					"saved_object_attributes" : 					{
 						"description" : "",
 						"digest" : "",
@@ -858,6 +870,14 @@
 			}
 , 			{
 				"patchline" : 				{
+					"destination" : [ "obj-4", 1 ],
+					"order" : 2,
+					"source" : [ "obj-31", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
 					"destination" : [ "obj-2", 0 ],
 					"source" : [ "obj-33", 0 ]
 				}
@@ -886,15 +906,15 @@
 			}
 , 			{
 				"patchline" : 				{
-					"destination" : [ "obj-9", 0 ],
-					"source" : [ "obj-7", 0 ]
+					"destination" : [ "obj-83", 0 ],
+					"source" : [ "obj-4", 0 ]
 				}
 
 			}
 , 			{
 				"patchline" : 				{
-					"destination" : [ "obj-15", 0 ],
-					"source" : [ "obj-83", 2 ]
+					"destination" : [ "obj-9", 0 ],
+					"source" : [ "obj-7", 0 ]
 				}
 
 			}
@@ -950,7 +970,7 @@
  ],
 		"dependency_cache" : [ 			{
 				"name" : "stepper.js",
-				"bootpath" : "~/Documents/Max 8/Library",
+				"bootpath" : "~/zeq",
 				"patcherrelativepath" : ".",
 				"type" : "TEXT",
 				"implicit" : 1
