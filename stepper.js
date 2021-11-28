@@ -23,7 +23,7 @@ var mod = { // modifier key states
     edit: false,
     shift: false,
 };
-//var renderMatrix = emptyArray(16, emptyArray(8, 0));
+var renderMatrix = emptyArray(16).map(function () { return emptyArray(8, 0)});
 
 function emptyArray(length, value) {
     var arr = []
@@ -265,24 +265,6 @@ function gridkey(input) { // general grid button functionality
     redraw()
 }
 
-function drawCell(x, y, val) {
-    renderMatrix[y][x] = val
-}
-
-function drawRow (x, y, vals) {
-     renderMatrix[y].forEach(function(cell, i) {
-        post('\n current val: ' + vals[i])
-        if (typeof vals[i] === 'number') {
-            cell = vals[i]
-            post('\n now: ' + cell)
-        } else {
-            cell = 0
-            post('\n now: ' + cell)
-        }
-    });
-    post('\n row ' + y + ' is now ' + renderMatrix[y])
-}
-
 //rendering
 function drawSequenceRows() { // render sequence information
     var row1 = emptyArray(8, 0)
@@ -314,7 +296,6 @@ function drawStatusBar() {
     } else {
         statusbar[active] = 15
     }
-    //statusbar[a] = 15
     if (mod.end == 1) { // illuminate endpoint key + actual sequence endpoint for active track
         statusbar[5] = 15
         outlet(1, '/monome/grid/led/level/set ' + getXY(activeTrack.len)[0] + ' ' + getXY(activeTrack.len)[1] + ' ' + 15)
@@ -337,18 +318,30 @@ function redraw() { // redraw grid leds. visual block only - does not modify any
     drawGlobalBar()
 }
 
-function render() { // concatenate matrix into osc, then send
-    drawRow(0,0,[15,15,15,15])
-    concatMatrix = renderMatrix.map(function(row, i) { 
-        if (i == 8) {
-            returnString = 'split' // insert split point
-        } else {
-            returnString = ''
-        }
-        return returnString + row.join(" "); 
-    }).join(" ")
-    splitString = concatMatrix.split('split')
-    
-    outlet(1, '/monome/grid/led/level/map 0 0 ' + splitString[0]) // top half
-    //outlet(1, '/monome/grid/led/level/map 0 8 ' + splitString[1]) // bottom half
+
+function drawRow (x, y, vals) {
+    for (i=0; i<vals.length; i++) {
+        drawCell(x+i, y, vals[i])
+    }
 }
+function drawColumn (x, y, vals) {
+    for (i=0; i<vals.length; i++) {
+        drawCell(x, y+i, vals[i])
+    }
+}
+function drawCell(x, y, val) {
+    renderMatrix[y][x] = val
+}
+function render() { // concatenate matrix into osc, then send
+    drawRow(3,3,[10,10,10,10])
+    var concatRows = renderMatrix.map(function(row, i) { 
+        return row.join(" "); 
+    })
+  
+    var topHalf = concatRows.slice(0,7).join(' ')
+    var bottomHalf = concatRows.slice(8,15).join(' ')
+    post(topHalf)
+    outlet(1, '/monome/grid/led/level/map 0 0 ' + topHalf) // top half
+    outlet(1, '/monome/grid/led/level/map 0 8 ' + bottomHalf) // bottom half
+}
+
