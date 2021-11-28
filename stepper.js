@@ -17,12 +17,13 @@ outlets = 3;
 var active = 0;
 var tracks = emptyArray(4).map(makeSequence);
 var playing = false;
+var renderMatrix = emptyArray(16, emptyArray(8, 0));
 var mod = { // modifier key states 
     end: false,
     edit: false,
     shift: false,
 };
-var renderMatrix = emptyArray(16, emptyArray(8, 0));
+//var renderMatrix = emptyArray(16, emptyArray(8, 0));
 
 function emptyArray(length, value) {
     var arr = []
@@ -264,6 +265,25 @@ function gridkey(input) { // general grid button functionality
     redraw()
 }
 
+function drawCell(x, y, val) {
+    renderMatrix[y][x] = val
+}
+
+function drawRow (x, y, vals) {
+     renderMatrix[y].forEach(function(cell, i) {
+        post('\n current val: ' + vals[i])
+        if (typeof vals[i] === 'number') {
+            cell = vals[i]
+            post('\n now: ' + cell)
+        } else {
+            cell = 0
+            post('\n now: ' + cell)
+        }
+    });
+    post('\n row ' + y + ' is now ' + renderMatrix[y])
+}
+
+//rendering
 function drawSequenceRows() { // render sequence information
     var row1 = emptyArray(8, 0)
     var row2 = emptyArray(8, 0)
@@ -318,14 +338,17 @@ function redraw() { // redraw grid leds. visual block only - does not modify any
 }
 
 function render() { // concatenate matrix into osc, then send
-    var topHalf = ''; var bottomHalf = '';
-    renderMatrix.forEach(function (element, i) {
-        if (i < 8) {
-            topHalf = topHalf + ' ' + element.join(' ')
+    drawRow(0,0,[15,15,15,15])
+    concatMatrix = renderMatrix.map(function(row, i) { 
+        if (i == 8) {
+            returnString = 'split' // insert split point
         } else {
-            bottomHalf = bottomHalf + ' ' + element.join(' ')
+            returnString = ''
         }
-    });
-    outlet(1, '/monome/grid/led/level/map 0 0' + topHalf)
-    outlet(1, '/monome/grid/led/level/map 0 8' + bottomHalf)
+        return returnString + row.join(" "); 
+    }).join(" ")
+    splitString = concatMatrix.split('split')
+    
+    outlet(1, '/monome/grid/led/level/map 0 0 ' + splitString[0]) // top half
+    //outlet(1, '/monome/grid/led/level/map 0 8 ' + splitString[1]) // bottom half
 }
