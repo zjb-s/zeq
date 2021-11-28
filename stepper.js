@@ -9,6 +9,8 @@ outlet  0   play/pause bang
 outlet  1   messages to serialosc
 outlet  2   outputs track number whenever a track triggers
 --
+todo:
+- refactor rendering so it stores the whole grid in a 2d array, then outputs it in 2 osc messages
 */
 inlets = 1;
 outlets = 3;
@@ -20,6 +22,7 @@ var mod = { // modifier key states
     edit: false,
     shift: false,
 };
+var renderMatrix = emptyArray(16, emptyArray(8, 0));
 
 function emptyArray(length, value) {
     var arr = []
@@ -77,6 +80,10 @@ function getActiveTrack() {
     return tracks[active]
 }
 
+function getTrack(which) {
+    return tracks[which]
+}
+
 function getXY(n) { // takes a position 0-15, returns [x,y] for use in grid
     if (n > 15) { return; post('position out of bounds') }
     var x; var y // return x, return y
@@ -90,31 +97,13 @@ function getXY(n) { // takes a position 0-15, returns [x,y] for use in grid
     return [x, y]
 }
 
-function bang() { // advance the sequence, redraw, echo
-    // for (i=0;i<4;i++) { // iterate and wrap each position
-    //     tracks[i].position++
-    //     if (tracks[i].position > tracks[i].l) { tracks[i].position = 0 }
-    // }
-
-    // Esther: refactored the two loops into one iterator
+function bang() { // advance the sequence, redraw
     tracks.forEach(function(currentTrack, i) {
-        //increment position and wrap around after .len steps using modulo division
-        //currentTrack.position = (currentTrack.position + 1) % currentTrack.len
-
         advanceSequence(currentTrack)
         if (currentTrack.currentStep) {
             outlet(2, i)
-            //post('\n track trigger: ' + i)
         }
     })
-
-    // for (i=0;i<4;i++) { // for each track
-    //     if (tracks[i].steps[tracks[i].position]) { // if the current step is active...
-    //         outlet(2, i) // push the track number from third outlet 
-    //         post('\n track trigger: ' + i)
-    //     }
-    // }
-
     redraw()
 }
 
@@ -134,33 +123,58 @@ function modkey(m) {
         mod.edit = !mod.edit
         post('\n edit mode: ' + mod.edit)
         // illuminate sample pads
-        if (mod.edit) { outlet(1, '/monome/grid/led/level/map 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    8 8 8 8 0 0 0 0 \
-                    8 8 8 8 0 0 0 0 \
-                    8 8 8 8 0 0 0 0 \
-                    8 8 8 8 0 0 0 0 \
-                    8 8 8 8 0 0 0 0 \
-        ')} else {
-            outlet(1, '/monome/grid/led/level/map 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    4 4 4 4 0 0 0 0 \
-                    4 4 4 4 0 0 0 0 \
-                    4 4 4 4 0 0 0 0 \
-                    4 4 4 4 0 0 0 0 \
-                    4 4 4 4 0 0 0 0 \
-        ')}
+        drawMaps()
     }
 
     redraw()
 }
 
+function drawMaps() {
+    if (mod.edit) { 
+        outlet(1, '/monome/grid/led/level/map 0 0 \
+                    0 0 0 0 0 0 0 0 \
+                    0 0 0 0 0 0 0 0 \
+                    0 0 0 0 0 0 0 0 \
+                    0 0 0 0 0 0 0 0 \
+                    8 8 8 8 0 8 8 8 \
+                    8 8 8 8 0 8 8 8 \
+                    8 8 8 8 0 8 8 8 \
+                    8 8 8 8 0 8 8 8 \
+        ');
+        outlet(1, '/monome/grid/led/level/map 0 8 \
+                    8 8 8 8 0 8 8 8 \
+                    8 8 8 8 0 8 8 8 \
+                    8 8 8 8 0 8 8 8 \
+                    8 8 8 8 0 8 8 8 \
+                    0 0 0 0 0 0 0 0 \
+                    0 0 0 0 0 0 0 0 \
+                    0 0 0 0 0 0 0 0 \
+                    0 0 0 0 0 0 0 0 \
+        ')
+    } else {
+        outlet(1, '/monome/grid/led/level/map 0 0 \
+                    0 0 0 0 0 0 0 0 \
+                    0 0 0 0 0 0 0 0 \
+                    0 0 0 0 0 0 0 0 \
+                    0 0 0 0 0 0 0 0 \
+                    4 4 4 4 0 4 4 4 \
+                    4 4 4 4 0 4 4 4 \
+                    4 4 4 4 0 4 4 4 \
+                    4 4 4 4 0 4 4 4 \
+        ');
+        outlet(1, '/monome/grid/led/level/map 0 8 \
+                    4 4 4 4 0 4 4 4 \
+                    4 4 4 4 0 4 4 4 \
+                    4 4 4 4 0 4 4 4 \
+                    4 4 4 4 0 4 4 4 \
+                    0 0 0 0 0 0 0 0 \
+                    0 0 0 0 0 0 0 0 \
+                    0 0 0 0 0 0 0 0 \
+                    0 0 0 0 0 0 0 0 \
+        ')}
+}
+
 function editStepSequences(x, y) {
-    post("editing")
     var position;
     var activeTrack = getActiveTrack()
     if (mod.end == 1) {
@@ -169,9 +183,7 @@ function editStepSequences(x, y) {
     } else if (mod.edit) {
         position = x + y * 8 // get seq position from x/y
         var editStep = activeTrack.steps[position]
-        post('\n before: ' + activeTrack.currentStep.on)
         if (editStep.on) {
-            //activeTrack.steps[activeTrack.position] = makeStep() // reset step
             editStep.on = false
             editStep.velocity = 127
             editStep.sample = activeTrack.qs
@@ -182,10 +194,9 @@ function editStepSequences(x, y) {
     post(activeTrack.steps[0].on)
 }
 
-function clear() {
+function clear() { // todo: this currently resets the sequence to the start - it shouldn't
     if (mod.shift) { // clear all sequences
         tracks = tracks.map(makeSequence)
-        //for (i=0;i<4;i++) {tracks[i] = templateSequence.slice()}
     } else { // or just the active one
         tracks[active] = makeSequence()
     }
@@ -202,13 +213,19 @@ function changeTrackFocus(x, y) {
     }
 }
 
-function coinFlip() {
-    return Math.random() > 0.5
-}
-
 function randomizeSequence(x, y) {
     post('\n randomizing sequence')
-    getActiveTrack().steps.map(coinFlip)
+    if (mod.shift) { // if shift is pressed, randomize all sequences
+        tracks.forEach(function(t) {
+            t.steps.forEach(function(s) {
+                s.on = Math.random() > 0.5
+            })
+        })
+    } else { // or just the active one
+        getActiveTrack().steps.forEach(function(element) {
+            element.on = Math.random() > 0.5
+        })
+    }
 }
 
 function playPause() {
@@ -225,8 +242,7 @@ function gridkey(input) { // general grid button functionality
     var parsedInput = input.split(' ')
     var x = parseInt(parsedInput[0], 10)
     var y = parseInt(parsedInput[1], 10)
-    
-    var rp; // return position
+
     post('\n key: [ ' + x + ', ' + y + ' ]')
     if (y < 2) { //edit the step sequences
         editStepSequences(x, y)
@@ -248,8 +264,7 @@ function gridkey(input) { // general grid button functionality
     redraw()
 }
 
-function drawSequenceRows() {
-    // render sequence information
+function drawSequenceRows() { // render sequence information
     var row1 = emptyArray(8, 0)
     var row2 = emptyArray(8, 0)
 
@@ -300,4 +315,17 @@ function redraw() { // redraw grid leds. visual block only - does not modify any
     drawSequenceRows()
     drawStatusBar()
     drawGlobalBar()
+}
+
+function render() { // concatenate matrix into osc, then send
+    var topHalf = ''; var bottomHalf = '';
+    renderMatrix.forEach(function (element, i) {
+        if (i < 8) {
+            topHalf = topHalf + ' ' + element.join(' ')
+        } else {
+            bottomHalf = bottomHalf + ' ' + element.join(' ')
+        }
+    });
+    outlet(1, '/monome/grid/led/level/map 0 0' + topHalf)
+    outlet(1, '/monome/grid/led/level/map 0 8' + bottomHalf)
 }
