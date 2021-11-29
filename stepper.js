@@ -14,16 +14,26 @@ todo:
 */
 inlets = 1;
 outlets = 3;
-var active = 0;
-var tracks = emptyArray(4).map(makeSequence);
-var playing = false;
-var renderMatrix = emptyArray(16, emptyArray(8, 0));
-var mod = { // modifier key states 
-    end: false,
-    edit: false,
-    shift: false,
-};
-var renderMatrix = emptyArray(16).map(function () { return emptyArray(8, 0)});
+
+var active;
+var tracks;
+var playing;
+var mod;
+var renderMatrix;
+
+function reset() {
+    active = 0;
+    tracks = emptyArray(4).map(makeSequence);
+    playing = false;
+    mod = { // modifier key states 
+        end: false,
+        edit: false,
+        shift: false,
+    };
+    renderMatrix = emptyArray(16).map(function () { return emptyArray(8, 0)});
+    post('\n initialized. ')
+    render()
+}
 
 function emptyArray(length, value) {
     var arr = []
@@ -105,7 +115,7 @@ function bang() { // advance the sequence, redraw
             outlet(2, i)
         }
     })
-    redraw()
+    render()
 }
 
 function modkey(m) {
@@ -124,55 +134,10 @@ function modkey(m) {
         mod.edit = !mod.edit
         post('\n edit mode: ' + mod.edit)
         // illuminate sample pads
-        drawMaps()
+        //drawMaps() todo: implement
     }
 
-    redraw()
-}
-
-function drawMaps() {
-    if (mod.edit) { 
-        outlet(1, '/monome/grid/led/level/map 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    8 8 8 8 0 8 8 8 \
-                    8 8 8 8 0 8 8 8 \
-                    8 8 8 8 0 8 8 8 \
-                    8 8 8 8 0 8 8 8 \
-        ');
-        outlet(1, '/monome/grid/led/level/map 0 8 \
-                    8 8 8 8 0 8 8 8 \
-                    8 8 8 8 0 8 8 8 \
-                    8 8 8 8 0 8 8 8 \
-                    8 8 8 8 0 8 8 8 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-        ')
-    } else {
-        outlet(1, '/monome/grid/led/level/map 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    4 4 4 4 0 4 4 4 \
-                    4 4 4 4 0 4 4 4 \
-                    4 4 4 4 0 4 4 4 \
-                    4 4 4 4 0 4 4 4 \
-        ');
-        outlet(1, '/monome/grid/led/level/map 0 8 \
-                    4 4 4 4 0 4 4 4 \
-                    4 4 4 4 0 4 4 4 \
-                    4 4 4 4 0 4 4 4 \
-                    4 4 4 4 0 4 4 4 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-                    0 0 0 0 0 0 0 0 \
-        ')}
+    render()
 }
 
 function editStepSequences(x, y) {
@@ -262,54 +227,41 @@ function gridkey(input) { // general grid button functionality
         playPause()
     }
     
-    redraw()
+    render()
 }
 
-//rendering
-function drawSequenceRows() { // render sequence information
-    var row1 = emptyArray(8, 0)
-    var row2 = emptyArray(8, 0)
 
+function drawSequenceRows() { // updated to use new matrix system
     for (i=0;i<8;i++) {
-        if (getActiveTrack().steps[i].on) { row1[i] = 15 }
-        if (getActiveTrack().steps[i + 8].on) { row2[i] = 15 }
+        if (getActiveTrack().steps[i].on) { drawCell(i, 0, 15) }
+        if (getActiveTrack().steps[i + 8].on) { drawCell(i, 1, 15) }
     }
-    var rs1 = row1.join(' ') // temp strings for rendering
-    var rs2 = row2.join(' ') 
-    outlet(1, '/monome/grid/led/level/row 0 0 ' + rs1)
-    outlet(1, '/monome/grid/led/level/row 0 1 ' + rs2)
 
     if (getActiveTrack().steps[getActiveTrack().position].on) { // if the step is active
-        outlet(1, '/monome/grid/led/level/set ' + getXY(getActiveTrack().position)[0] + ' ' + getXY(getActiveTrack().position)[1] + ' 8')
+        drawCell(getXY(getActiveTrack().position)[0], getXY(getActiveTrack().position)[1], 8)
     } else {
-        outlet(1, '/monome/grid/led/level/set ' + getXY(getActiveTrack().position)[0] + ' ' + getXY(getActiveTrack().position)[1] + ' 4')
+        drawCell(getXY(getActiveTrack().position)[0], getXY(getActiveTrack().position)[1], 4)
     }
 }
 
-function drawStatusBar() {
+function drawStatusBar() { // updated to use new matrix system
 
     var activeTrack = getActiveTrack()
-    //status bar, row 2
-    var statusbar = [2,2,2,2,4,4,4,4]
-    if (activeTrack.mute) { // if the active track is muted
-        statusbar[active] = 4
+    drawRow(0,2,[2,2,2,2,4,4,4,4])
+    if (activeTrack.mute) {
+        drawCell(active, 2, 4)
     } else {
-        statusbar[active] = 15
+        drawCell(active, 2, 15)
     }
-    if (mod.end == 1) { // illuminate endpoint key + actual sequence endpoint for active track
-        statusbar[5] = 15
-        outlet(1, '/monome/grid/led/level/set ' + getXY(activeTrack.len)[0] + ' ' + getXY(activeTrack.len)[1] + ' ' + 15)
-    }
-    if (mod.edit) { statusbar[4] = 15}
-    outlet(1, '/monome/grid/led/level/row 0 2 ' + statusbar.join(' ')) // render statusbar
+    if (mod.end == 1) { drawCell(5, 2, 15) }
+    if (mod.edit) { drawCell(4, 2, 15) }
+
 }
 
 function drawGlobalBar() {
-    //global keys, bottom row (15)
-    var globalbar = [4,4,4,4,4,4,4,4]
-    if (playing) {globalbar[7] = 15}
-    if (mod.shift) {globalbar[0] = 15}
-    outlet(1, '/monome/grid/led/level/row 0 15 ' + globalbar.join(' ')) // render global bar
+    drawRow(0, 15, [4,4,4,4,4,4,4,4])
+    if (playing) { drawCell(7, 15, 15) }
+    if (mod.shift) { drawCell(0, 15, 15) }
 }
 
 function redraw() { // redraw grid leds. visual block only - does not modify any states
@@ -330,18 +282,27 @@ function drawColumn (x, y, vals) {
     }
 }
 function drawCell(x, y, val) {
-    renderMatrix[y][x] = val
+    post('\n drawCell: [' + x + ', ' + y + '] = ' + val)
+    if (typeof x === 'number' && typeof y === 'number' && typeof val === 'number') { renderMatrix[y][x] = val }
 }
 function render() { // concatenate matrix into osc, then send
-    drawRow(3,3,[10,10,10,10])
+
+    // take care of sections...
+    drawSequenceRows()
+    drawStatusBar()
+    drawGlobalBar()
+
+    // then assemble everything...
     var concatRows = renderMatrix.map(function(row, i) { 
         return row.join(" "); 
     })
-  
-    var topHalf = concatRows.slice(0,7).join(' ')
-    var bottomHalf = concatRows.slice(8,15).join(' ')
-    post(topHalf)
+    var topHalf = concatRows.slice(0,8).join(' ')
+    var bottomHalf = concatRows.slice(8,16).join(' ')
+
     outlet(1, '/monome/grid/led/level/map 0 0 ' + topHalf) // top half
     outlet(1, '/monome/grid/led/level/map 0 8 ' + bottomHalf) // bottom half
+    post('\n rendered.')
+    renderMatrix = emptyArray(16).map(function () { return emptyArray(8, 0)});
+
 }
 
