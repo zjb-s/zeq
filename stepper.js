@@ -18,6 +18,7 @@ outlets = 3;
 var active;
 var tracks;
 var playing;
+var panelVelocity;
 var mod;
 var renderMatrix;
 
@@ -25,6 +26,7 @@ function reset() {
     active = 0;
     tracks = emptyArray(4).map(makeSequence);
     playing = false;
+    panelVelocity = 7;
     mod = { // modifier key states 
         end: false,
         edit: false,
@@ -51,7 +53,7 @@ function makeSequence () { // sequence constructor
         position: 0, // position in sequence
         len: 15, // length
         mute: false, // mute state
-        qs: 0 // queued sample
+        activeSample: 0 // queued sample
     }
     sequence.currentStep = sequence.steps[0]
     return sequence
@@ -135,6 +137,7 @@ function modkey(m) {
         post('\n edit mode: ' + mod.edit)
         // illuminate sample pads
         //drawMaps() todo: implement
+
     }
 
     render()
@@ -151,8 +154,8 @@ function editStepSequences(x, y) {
         var editStep = activeTrack.steps[position]
         if (editStep.on) {
             editStep.on = false
-            editStep.velocity = 127
-            editStep.sample = activeTrack.qs
+            editStep.velocity = 8
+            editStep.sample = activeTrack.activeSample
         } else {
             editStep.on = true
         }
@@ -209,7 +212,7 @@ function gridkey(input) { // general grid button functionality
     var x = parseInt(parsedInput[0], 10)
     var y = parseInt(parsedInput[1], 10)
 
-    post('\n key: [ ' + x + ', ' + y + ' ]')
+    //post('\n key: [ ' + x + ', ' + y + ' ]')
     if (y < 2) { //edit the step sequences
         editStepSequences(x, y)
     } else if (y == 2 && x < 4) { // change track focus
@@ -218,16 +221,33 @@ function gridkey(input) { // general grid button functionality
         clear()
     } else if (x == 6 && y == 2) { // randomize sequence
         randomizeSequence(x, y)
-    } else if (x < 4 && y > 2 && y < 8 && mod.edit) { // if edit mode is on, enter live notes on sample pads
-        tracks[x].steps[tracks[x].position].on = true // set current step to active
-        tracks[x].steps[tracks[x].position].sample = y - 3
-        post('\n track sample key: track ' + x + ', sample ' + (y-3))
-
+    } else if (x < 4 && y > 3 && y < 12) { //sample pads
+        editSamplePads(x, y)
+    } else if (x == 7 && y > 3 && y < 12) { // adjust velocity
+        editVelocity(y)
     } else if (x == 7 && y == 15) { // play/pause button
         playPause()
     }
     
     render()
+}
+
+function editSamplePads(x, y) {
+    var editStep = getTrack(x).steps[getTrack(x).position]
+    if (mod.shift) {
+        getTrack(x).activeSample = 11 - y
+    } else {
+        if (mod.edit) {
+            editStep.on = true
+            editStep.velocity = panelVelocity
+            editStep.sample = 11 - y
+        } 
+    }
+}
+
+function editVelocity(y) {
+    panelVelocity = (11 - (y))
+    post('\n panelVelocity: ' + panelVelocity)
 }
 
 
@@ -264,12 +284,26 @@ function drawGlobalBar() {
     if (mod.shift) { drawCell(0, 15, 15) }
 }
 
-function redraw() { // redraw grid leds. visual block only - does not modify any states
-    drawSequenceRows()
-    drawStatusBar()
-    drawGlobalBar()
+// function redraw() { // redraw grid leds. visual block only - does not modify any states
+//     drawSequenceRows()
+//     drawStatusBar()
+//     drawGlobalBar()
+// }
+
+function drawVelocityBar() {
+    drawColumn(7, 4, [4,4,4,4,4,4,4,4])
+    drawCell(7, 11 - panelVelocity, 15)
 }
 
+function drawSamplePads() {
+    var background = mod.edit ? [4,4,4,4,4,4,4,4] : [2,2,2,2,2,2,2,2]
+    var foreground = mod.edit ? 15 : 10
+    for (var i = 0; i < 4; i++) {
+        post('\n drawing column at ' + i)
+        drawColumn(i, 4, background)
+        drawCell(i, 11 - getTrack(i).activeSample, foreground)
+    }
+}
 
 function drawRow (x, y, vals) {
     for (i=0; i<vals.length; i++) {
@@ -277,12 +311,13 @@ function drawRow (x, y, vals) {
     }
 }
 function drawColumn (x, y, vals) {
+    //post('\n drawColumn')
     for (i=0; i<vals.length; i++) {
         drawCell(x, y+i, vals[i])
     }
 }
 function drawCell(x, y, val) {
-    post('\n drawCell: [' + x + ', ' + y + '] = ' + val)
+    //post('\n drawCell: [' + x + ', ' + y + '] = ' + val)
     if (typeof x === 'number' && typeof y === 'number' && typeof val === 'number') { renderMatrix[y][x] = val }
 }
 function render() { // concatenate matrix into osc, then send
@@ -291,6 +326,8 @@ function render() { // concatenate matrix into osc, then send
     drawSequenceRows()
     drawStatusBar()
     drawGlobalBar()
+    drawVelocityBar()
+    drawSamplePads()
 
     // then assemble everything...
     var concatRows = renderMatrix.map(function(row, i) { 
@@ -301,8 +338,7 @@ function render() { // concatenate matrix into osc, then send
 
     outlet(1, '/monome/grid/led/level/map 0 0 ' + topHalf) // top half
     outlet(1, '/monome/grid/led/level/map 0 8 ' + bottomHalf) // bottom half
-    post('\n rendered.')
+    //post('\n rendered.')
     renderMatrix = emptyArray(16).map(function () { return emptyArray(8, 0)});
-
 }
 
