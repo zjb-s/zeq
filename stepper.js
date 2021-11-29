@@ -7,10 +7,10 @@ inlet   0   bang to advance sequences
 --
 outlet  0   play/pause bang
 outlet  1   messages to serialosc
-outlet  2   outputs track number whenever a track triggers
+outlet  2   outputs step information whenever a track triggers
 --
 todo:
-- refactor rendering so it stores the whole grid in a 2d array, then outputs it in 2 osc messages
+- create a step selection system to edit steps without replacing them
 */
 inlets = 1;
 outlets = 3;
@@ -63,7 +63,7 @@ function makeStep () { // step constructor
     return {
         on: false,
         sample: 0,
-        velocity: 127
+        velocity: panelVelocity
     }
 }
 
@@ -113,63 +113,49 @@ function getXY(n) { // takes a position 0-15, returns [x,y] for use in grid
 function bang() { // advance the sequence, redraw
     tracks.forEach(function(currentTrack, i) {
         advanceSequence(currentTrack)
-        if (currentTrack.currentStep) {
-            outlet(2, i)
+        if (currentTrack.currentStep.on) {
+            outlet(2, 
+                currentTrack.currentStep.sample + ' '
+                + Number( currentTrack.currentStep.velocity * 8 ) + ' '
+                + i
+            )
         }
     })
     render()
 }
 
-function modkey(m) {
-    m = m.split(' ')
-    var x = m[0]
-    var y = m[1]
-    var z = m[2]
-
-    if (x == 5 && y == 2) { // endpoint
-        mod.end = z
-        post('\n modkey: end: ' + mod.end)
-    } else if (x == 0 && y == 15) { // shift
-        mod.shift = !mod.shift
-        post('\n modkey: shift: ' + mod.shift)
-    } else if (x == 4 && y == 2 && z == 1) { // toggle edit
-        mod.edit = !mod.edit
-        post('\n edit mode: ' + mod.edit)
-        // illuminate sample pads
-        //drawMaps() todo: implement
-
-    }
-
-    render()
-}
-
 function editStepSequences(x, y) {
-    var position;
+    var position = x + y * 8
     var activeTrack = getActiveTrack()
     if (mod.end == 1) {
         activeTrack.len = (x + y * 8)
         post('\n modified end point of track ' + active + ' to ' + activeTrack.len)
     } else if (mod.edit) {
-        position = x + y * 8 // get seq position from x/y
         var editStep = activeTrack.steps[position]
         if (editStep.on) {
             editStep.on = false
-            editStep.velocity = 8
-            editStep.sample = activeTrack.activeSample
         } else {
             editStep.on = true
+            editStep.velocity = panelVelocity
+            editStep.sample = getActiveTrack().activeSample
         }
     }
-    post(activeTrack.steps[0].on)
+    //post(activeTrack.steps[0].on)
 }
 
-function clear() { // todo: this currently resets the sequence to the start - it shouldn't
+function clear() { 
+    var pos = [0,0,0,0]
+    tracks.forEach(function(e,i) { pos[i] = e.position }) // store positions 
     if (mod.shift) { // clear all sequences
         tracks = tracks.map(makeSequence)
     } else { // or just the active one
         tracks[active] = makeSequence()
     }
-    post('\n clear sequence ' + a)
+    tracks.map(function(e, i) { //reassign positions to their "old" values
+        e.position = pos[i]; 
+        post(i)
+        post(e.position)
+    })
 }
 
 function changeTrackFocus(x, y) {
@@ -207,12 +193,23 @@ function playPause() {
     }
 }
 
-function gridkey(input) { // general grid button functionality
-    var parsedInput = input.split(' ')
-    var x = parseInt(parsedInput[0], 10)
-    var y = parseInt(parsedInput[1], 10)
+function modKey(x, y, z) {
+    //////////////////////////////////////////////// mod keys
+    if (x == 5 && y == 2) { // endpoint
+        mod.end = z
+        //post('\n modkey: end: ' + mod.end)
+    } else if (x == 0 && y == 15) { // shift
+        mod.shift = !mod.shift
+        //post('\n modkey: shift: ' + mod.shift)
+    } else if (x == 4 && y == 2 && z == 1) { // toggle edit
+        mod.edit = !mod.edit
+        //post('\n edit mode: ' + mod.edit)
 
-    //post('\n key: [ ' + x + ', ' + y + ' ]')
+    }
+}
+
+function key(x, y) {
+    //////////////////////////////////////////////// normal keys
     if (y < 2) { //edit the step sequences
         editStepSequences(x, y)
     } else if (y == 2 && x < 4) { // change track focus
@@ -228,20 +225,27 @@ function gridkey(input) { // general grid button functionality
     } else if (x == 7 && y == 15) { // play/pause button
         playPause()
     }
-    
+}
+
+function gridKey(input) { // general grid button functionality
+    var parsedInput = input.split(' ')
+    var x = parseInt(parsedInput[0], 10)
+    var y = parseInt(parsedInput[1], 10)
+    var z = parseInt(parsedInput[2], 10)
+    if (z == 1) { key(x, y) } // if it's a key on, send to key()
+    modKey(x, y, z)
     render()
 }
 
 function editSamplePads(x, y) {
     var editStep = getTrack(x).steps[getTrack(x).position]
-    if (mod.shift) {
+    if (mod.edit) {
+        editStep.on = true
+        editStep.velocity = panelVelocity
+        editStep.sample = 11 - y
+    }
+    if (!mod.edit || (mod.edit && mod.shift)) {
         getTrack(x).activeSample = 11 - y
-    } else {
-        if (mod.edit) {
-            editStep.on = true
-            editStep.velocity = panelVelocity
-            editStep.sample = 11 - y
-        } 
     }
 }
 
@@ -252,15 +256,20 @@ function editVelocity(y) {
 
 
 function drawSequenceRows() { // updated to use new matrix system
-    for (i=0;i<8;i++) {
-        if (getActiveTrack().steps[i].on) { drawCell(i, 0, 15) }
-        if (getActiveTrack().steps[i + 8].on) { drawCell(i, 1, 15) }
+    var t = getActiveTrack()
+    for (i=0;i<8;i++) { // draw top 2 rows
+        if (t.steps[i].on) { drawCell(i, 0, 15) }
+        if (t.steps[i + 8].on) { drawCell(i, 1, 15) }
     }
 
     if (getActiveTrack().steps[getActiveTrack().position].on) { // if the step is active
         drawCell(getXY(getActiveTrack().position)[0], getXY(getActiveTrack().position)[1], 8)
     } else {
         drawCell(getXY(getActiveTrack().position)[0], getXY(getActiveTrack().position)[1], 4)
+    }
+    if (mod.end) {
+        drawCell( getXY(t.len)[0], getXY(t.len)[1], 15)
+
     }
 }
 
@@ -299,7 +308,7 @@ function drawSamplePads() {
     var background = mod.edit ? [4,4,4,4,4,4,4,4] : [2,2,2,2,2,2,2,2]
     var foreground = mod.edit ? 15 : 10
     for (var i = 0; i < 4; i++) {
-        post('\n drawing column at ' + i)
+        //post('\n drawing column at ' + i)
         drawColumn(i, 4, background)
         drawCell(i, 11 - getTrack(i).activeSample, foreground)
     }
@@ -311,7 +320,6 @@ function drawRow (x, y, vals) {
     }
 }
 function drawColumn (x, y, vals) {
-    //post('\n drawColumn')
     for (i=0; i<vals.length; i++) {
         drawCell(x, y+i, vals[i])
     }
