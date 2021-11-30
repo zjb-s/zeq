@@ -21,8 +21,12 @@ var playing;
 var panelVelocity;
 var mod;
 var renderMatrix;
+var blink;
+var clockCounter
 
 function reset() {
+    clockCounter = 0
+    blink = false;
     active = 0;
     tracks = emptyArray(4).map(makeSequence);
     playing = false;
@@ -63,7 +67,9 @@ function makeStep () { // step constructor
     return {
         on: false,
         sample: 0,
-        velocity: panelVelocity
+        velocity: panelVelocity,
+        selected: false,
+        probability: 100
     }
 }
 
@@ -111,34 +117,42 @@ function getXY(n) { // takes a position 0-15, returns [x,y] for use in grid
 }
 
 function bang() { // advance the sequence, redraw
-    tracks.forEach(function(currentTrack, i) {
-        advanceSequence(currentTrack)
-        if (currentTrack.currentStep.on) {
-            outlet(2, 
-                currentTrack.currentStep.sample + ' '
-                + Number( currentTrack.currentStep.velocity * 8 ) + ' '
-                + i
-            )
-        }
-    })
+    if (playing) {
+        tracks.forEach(function(currentTrack, i) {
+            advanceSequence(currentTrack)
+            if (currentTrack.currentStep.on) {
+                outlet(2, 
+                    currentTrack.currentStep.sample + ' '
+                    + Number( currentTrack.currentStep.velocity * 8 ) + ' '
+                    + i
+                )
+            }
+        })
+    }
     render()
+    blink = !blink
 }
 
 function editStepSequences(x, y) {
     var position = x + y * 8
     var activeTrack = getActiveTrack()
+    var editStep = activeTrack.steps[position]
     if (mod.end == 1) {
         activeTrack.len = (x + y * 8)
         post('\n modified end point of track ' + active + ' to ' + activeTrack.len)
     } else if (mod.edit) {
-        var editStep = activeTrack.steps[position]
         if (editStep.on) {
-            editStep.on = false
+            if (mod.shift) {
+                editStep.selected = !editStep.selected
+            } else {
+                editStep.on = false;
+            }
         } else {
-            editStep.on = true
-            editStep.velocity = panelVelocity
-            editStep.sample = getActiveTrack().activeSample
+            editStep.on = makeStep()
+            editStep.selected = false;
         }
+    } else {
+        editStep.selected = !editStep.selected
     }
     //post(activeTrack.steps[0].on)
 }
@@ -160,8 +174,8 @@ function clear() {
 
 function changeTrackFocus(x, y) {
     if (mod.shift) {
-        tracks[x].mute = !tracks[x].mute // toggle track mute
-        post('\n sequence ' + x + ' mute state: ' + tracks[x].mute)
+        getTrack(x).mute = !getTrack(x).mute // toggle track mute
+        post('\n sequence ' + x + ' mute state: ' + getTrack(x).mute)
     } else {
         active = x
         post('\n focus sequence ' + active)
@@ -185,8 +199,6 @@ function randomizeSequence(x, y) {
 
 function playPause() {
     playing = !playing
-    post('\n toggled playing')
-    outlet(0, playing ? 1 : 0)
     if (!playing) {
         //for (i=0;i<4;i++) { tracks[i].position = tracks[i].len }
         tracks.forEach(setSequenceToEnd)
@@ -194,36 +206,30 @@ function playPause() {
 }
 
 function modKey(x, y, z) {
-    //////////////////////////////////////////////// mod keys
-    if (x == 5 && y == 2) { // endpoint
-        mod.end = z
-        //post('\n modkey: end: ' + mod.end)
+    if (x == 3 && y == 15) { // endpoint
+        mod.end = z == 1;
     } else if (x == 0 && y == 15) { // shift
-        mod.shift = !mod.shift
-        //post('\n modkey: shift: ' + mod.shift)
-    } else if (x == 4 && y == 2 && z == 1) { // toggle edit
-        mod.edit = !mod.edit
-        //post('\n edit mode: ' + mod.edit)
-
+        mod.shift = z == 1;
+    } else if (x == 1 && y == 15 && z == 1) { // toggle edit
+        mod.edit = !mod.edit;
     }
 }
 
 function key(x, y) {
-    //////////////////////////////////////////////// normal keys
     if (y < 2) { //edit the step sequences
         editStepSequences(x, y)
     } else if (y == 2 && x < 4) { // change track focus
         changeTrackFocus(x, y)
-    } else if (y == 2 && x == 7) { // clear
+    } else if (x == 5 && y == 15) { // clear
         clear()
-    } else if (x == 6 && y == 2) { // randomize sequence
+    } else if (x == 4 && y == 15) { // randomize sequence
         randomizeSequence(x, y)
     } else if (x < 4 && y > 3 && y < 12) { //sample pads
         editSamplePads(x, y)
     } else if (x == 7 && y > 3 && y < 12) { // adjust velocity
         editVelocity(y)
     } else if (x == 7 && y == 15) { // play/pause button
-        playPause()
+        playPause()     
     }
 }
 
@@ -258,8 +264,14 @@ function editVelocity(y) {
 function drawSequenceRows() { // updated to use new matrix system
     var t = getActiveTrack()
     for (i=0;i<8;i++) { // draw top 2 rows
-        if (t.steps[i].on) { drawCell(i, 0, 15) }
-        if (t.steps[i + 8].on) { drawCell(i, 1, 15) }
+        if (t.steps[i].on) { 
+            drawCell(i, 0, 15) 
+            if (t.steps[i].selected) { drawCell(i, 0, blink ? 10 : 15)}
+        }
+        if (t.steps[i + 8].on) { 
+            drawCell(i, 1, 15) 
+            if (t.steps[i].selected) { drawCell(i, 1, blink ? 10 : 15)}
+        }
     }
 
     if (getActiveTrack().steps[getActiveTrack().position].on) { // if the step is active
@@ -274,23 +286,17 @@ function drawSequenceRows() { // updated to use new matrix system
 }
 
 function drawStatusBar() { // updated to use new matrix system
-
-    var activeTrack = getActiveTrack()
     drawRow(0,2,[2,2,2,2,4,4,4,4])
-    if (activeTrack.mute) {
-        drawCell(active, 2, 4)
-    } else {
-        drawCell(active, 2, 15)
-    }
+    drawCell(active, 2, getActiveTrack().mute ? 4 : 15)
     if (mod.end == 1) { drawCell(5, 2, 15) }
-    if (mod.edit) { drawCell(4, 2, 15) }
-
 }
 
 function drawGlobalBar() {
-    drawRow(0, 15, [4,4,4,4,4,4,4,4])
-    if (playing) { drawCell(7, 15, 15) }
-    if (mod.shift) { drawCell(0, 15, 15) }
+    drawCell(0, 15, mod.shift ? 15 : 4) // shift
+    drawCell(1, 15, mod.edit ? 15 : 4) // edit
+    drawCell(3, 15, mod.end ? 15 : 4) // endpoint
+    drawRow(4, 15, [4, 4])
+    drawCell(7, 15, playing ? 15 : 4) // playing
 }
 
 // function redraw() { // redraw grid leds. visual block only - does not modify any states
@@ -336,6 +342,7 @@ function render() { // concatenate matrix into osc, then send
     drawGlobalBar()
     drawVelocityBar()
     drawSamplePads()
+    
 
     // then assemble everything...
     var concatRows = renderMatrix.map(function(row, i) { 
