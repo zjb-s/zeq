@@ -1,12 +1,16 @@
 # zeq
-grid sequencer for max
+performance sequencer for monome grid 128
+![IMG_1831](https://user-images.githubusercontent.com/86270534/143897927-23e6f200-a8dd-4e8b-ba92-0aa80ba8b137.jpg)
 
-row 0 & 1: step sequence
+# overview
+**zeq** is:
+- still an infant
+- short for ezequiel
+- a performance sequencer, inspired by the way i use my octatrack
+- 4 tracks of 1 - 16 steps each
+- vertically oriented
 
-row 2, left side: track selectors
-
-row 2, right side: rec, endpoint, randomize, clear
-
-middle left block: track trigs in columns. each cell is a sample
-
-bottom row: shift, play/pause
+# use
+## steps
+The top 2 rows of the grid represent the steps of the currently selected track. 
+# in progress
