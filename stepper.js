@@ -11,6 +11,8 @@ outlet  2   outputs step information whenever a track triggers
 --
 todo:
 - create a step selection system to edit steps without replacing them
+-- implemented this visually only
+- implemented visuals for page system - need to do functionality
 */
 inlets = 1;
 outlets = 3;
@@ -22,9 +24,11 @@ var panelVelocity;
 var mod;
 var renderMatrix;
 var blink;
-var clockCounter
+var clockCounter;
+var viewPage;
 
 function reset() {
+    viewPage = 0;
     clockCounter = 0
     blink = false;
     active = 0;
@@ -57,9 +61,11 @@ function makeSequence () { // sequence constructor
         position: 0, // position in sequence
         len: 15, // length
         mute: false, // mute state
-        activeSample: 0 // queued sample
+        activeSample: 0, // queued sample
+        pages: [true, false, false, false]
     }
     sequence.currentStep = sequence.steps[0]
+
     return sequence
 }
 
@@ -215,11 +221,23 @@ function modKey(x, y, z) {
     }
 }
 
+function pageKey(x, y) {
+    if (mod.shift) {
+        getActiveTrack().pages[x - 4] = !getActiveTrack().pages[x - 4]
+    } else {
+        viewPage = x - 4
+        post('\n viewpage now: ' + viewPage)
+    }
+}
+
 function key(x, y) {
+    //post('\nkey')
     if (y < 2) { //edit the step sequences
         editStepSequences(x, y)
     } else if (y == 2 && x < 4) { // change track focus
         changeTrackFocus(x, y)
+    } else if (y == 2 && x > 3) {
+        pageKey(x, y)
     } else if (x == 5 && y == 15) { // clear
         clear()
     } else if (x == 4 && y == 15) { // randomize sequence
@@ -265,7 +283,7 @@ function drawSequenceRows() { // updated to use new matrix system
     var t = getActiveTrack()
     for (i=0;i<8;i++) { // draw top 2 rows
         if (t.steps[i].on) { 
-            drawCell(i, 0, 15) 
+            drawCell(i, 0, 15)
             if (t.steps[i].selected) { drawCell(i, 0, blink ? 10 : 15)}
         }
         if (t.steps[i + 8].on) { 
@@ -285,10 +303,12 @@ function drawSequenceRows() { // updated to use new matrix system
     }
 }
 
-function drawStatusBar() { // updated to use new matrix system
-    drawRow(0,2,[2,2,2,2,4,4,4,4])
-    drawCell(active, 2, getActiveTrack().mute ? 4 : 15)
-    if (mod.end == 1) { drawCell(5, 2, 15) }
+function drawStatusBar() {
+    drawRow(0,2,[2,2,2,2]) // tracks background
+    drawCell(active, 2, getActiveTrack().mute ? 4 : 15) // illuminate active track
+    getActiveTrack().pages.forEach(function (e, i) { drawCell(i + 4, 2, getActiveTrack().pages[i] ? 8 : 2) }) // draw page mute states
+    drawCell(viewPage + 4, 2, 15)
+    if (blink && playing) { drawCell(Math.floor(getActiveTrack().position / 16) + 4, 2, 13) } // playhead cursor page
 }
 
 function drawGlobalBar() {
@@ -298,12 +318,6 @@ function drawGlobalBar() {
     drawRow(4, 15, [4, 4])
     drawCell(7, 15, playing ? 15 : 4) // playing
 }
-
-// function redraw() { // redraw grid leds. visual block only - does not modify any states
-//     drawSequenceRows()
-//     drawStatusBar()
-//     drawGlobalBar()
-// }
 
 function drawVelocityBar() {
     drawColumn(7, 4, [4,4,4,4,4,4,4,4])
