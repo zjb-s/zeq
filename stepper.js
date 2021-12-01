@@ -12,7 +12,7 @@ outlet  2   outputs step information whenever a track triggers
 todo:
 - create a step selection system to edit steps without replacing them
 -- implemented this visually only
-- implemented visuals for page system - need to do functionality
+-- when only one page, not the first one, is unmuted, the playhead doesn't work right.
 */
 inlets = 1;
 outlets = 3;
@@ -82,9 +82,11 @@ function makeStep () { // step constructor
 function advanceSequence(sequence, steps) {
     if (typeof steps === 'undefined') { steps = 1 } // default value
     var newPosition = sequence.position + steps;
-    while (!sequence.pages[Math.floor(newPosition / 16)] && sequence.pages[Math.floor(newPosition / 16)] < 4) {newPosition += 16}
-    //todo: this isn't crashing, but it isn't working either. Need to make sequence muting work.
-    return setSequencePosition(sequence, sequence.position + steps)
+
+    // wrap for muted pages; needs work
+    while (!sequence.pages[Math.floor(newPosition / 16)] && sequence.pages[Math.floor(newPosition / 16)] < 8) {newPosition += 16} 
+
+    return setSequencePosition(sequence, newPosition)
 }
 
 function resetSequence(sequence) {
@@ -154,13 +156,14 @@ function editStepSequences(x, y) {
                 editStep.on = false;
             }
         } else {
-            editStep.on = makeStep()
+            post('\n turning step on')
+            editStep.on = true;
             editStep.selected = false;
         }
     } else {
         editStep.selected = !editStep.selected
     }
-    //post(activeTrack.steps[0].on)
+    post('\n step ' + (position) + '.selected = ' + editStep.selected)
 }
 
 function clear() { 
@@ -263,7 +266,7 @@ function gridKey(input) { // general grid button functionality
     render()
 }
 
-function editSamplePads(x, y) {
+function editSamplePads(x, y) { // process presses on the sample pads
     var editStep = getTrack(x).steps[getTrack(x).position]
     if (mod.edit) {
         editStep.on = true
@@ -284,23 +287,22 @@ function compareToPage(number) {
     return Math.floor(number / 16) == viewPage;
 }
 
-function drawSequenceRows() {
+function drawSequenceRows() { // todo: not rendering bottom row selections correctly
     var t = getActiveTrack()
     for (i=0;i<8;i++) { // draw top 2 rows
         var thisStep = t.steps[i + viewPage * 16]
+        var thisStep2 = t.steps[i + 8 + viewPage * 16]
         if (thisStep.on) { // first row
-            drawCell(i, 0, 15)
-            if (thisStep.selected && blink) { drawCell(i, 0, 10) }
+            drawCell(i, 0, (thisStep.selected && blink) ? 10 : 15)
         }
-        if (t.steps[i + 8 + viewPage * 16].on) {  // second row
-            drawCell(i, 1, 15) 
-            if (thisStep.selected && blink) { drawCell(i, 1, 10) }
+        if (thisStep2.on) {  // second row
+            drawCell(i, 1, (thisStep2.selected && blink) ? 10 : 15)
         }
     }
     if (compareToPage(t.position)) { // if we're viewing the cursor page
-        drawCell(getXY(t.position)[0], getXY(t.position)[1], t.steps[t.position].on ? 8 : 4)
+        drawCell(getXY(t.position)[0], getXY(t.position)[1], t.steps[t.position].on ? 8 : 4) // draw the cursor
     }
-    if (mod.end && Math.floor(t.len / 16) == viewPage) { drawCell( getXY(t.len)[0], getXY(t.len)[1], 15) }
+    if (mod.end && Math.floor(t.len / 16) == viewPage) { drawCell( getXY(t.len)[0], getXY(t.len)[1], 15) } // if endpoint key is held, show the endpoint
 }
 
 function drawStatusBar() {
@@ -371,4 +373,3 @@ function render() { // concatenate matrix into osc, then send
     //post('\n rendered.')
     renderMatrix = emptyArray(16).map(function () { return emptyArray(8, 0)});
 }
-
