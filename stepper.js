@@ -57,7 +57,7 @@ function emptyArray(length, value) {
 
 function makeSequence () { // sequence constructor
     var sequence = {
-        steps: emptyArray(16).map(makeStep), // make a new one rather than slicing the same one, don't need templateSequence at all
+        steps: emptyArray(64).map(makeStep), // make a new one rather than slicing the same one, don't need templateSequence at all
         position: 0, // position in sequence
         len: 15, // length
         mute: false, // mute state
@@ -80,10 +80,10 @@ function makeStep () { // step constructor
 }
 
 function advanceSequence(sequence, steps) {
-    if (typeof steps === 'undefined') {
-        steps = 1
-    }
-
+    if (typeof steps === 'undefined') { steps = 1 } // default value
+    var newPosition = sequence.position + steps;
+    while (!sequence.pages[Math.floor(newPosition / 16)] && sequence.pages[Math.floor(newPosition / 16)] < 4) {newPosition += 16}
+    //todo: this isn't crashing, but it isn't working either. Need to make sequence muting work.
     return setSequencePosition(sequence, sequence.position + steps)
 }
 
@@ -110,7 +110,7 @@ function getTrack(which) {
 }
 
 function getXY(n) { // takes a position 0-15, returns [x,y] for use in grid
-    if (n > 15) { return; post('position out of bounds') }
+    while (n > 15) { n -= 16 }
     var x; var y // return x, return y
     if (n < 8) {
         x = n
@@ -140,11 +140,11 @@ function bang() { // advance the sequence, redraw
 }
 
 function editStepSequences(x, y) {
-    var position = x + y * 8
+    var position = (x + y * 8) + (viewPage * 16) // converting x/y info + page info into an integer position
     var activeTrack = getActiveTrack()
     var editStep = activeTrack.steps[position]
-    if (mod.end == 1) {
-        activeTrack.len = (x + y * 8)
+    if (mod.end) {
+        activeTrack.len = ((x + y * 8) + (viewPage * 16))
         post('\n modified end point of track ' + active + ' to ' + activeTrack.len)
     } else if (mod.edit) {
         if (editStep.on) {
@@ -222,11 +222,13 @@ function modKey(x, y, z) {
 }
 
 function pageKey(x, y) {
+    activeTrack = getActiveTrack()
     if (mod.shift) {
-        getActiveTrack().pages[x - 4] = !getActiveTrack().pages[x - 4]
+        activeTrack.pages[x - 4] = !activeTrack.pages[x - 4]
+    } else if (mod.end) {
+        activeTrack.len = (16 * (x - 4)) + 15
     } else {
         viewPage = x - 4
-        post('\n viewpage now: ' + viewPage)
     }
 }
 
@@ -278,37 +280,36 @@ function editVelocity(y) {
     post('\n panelVelocity: ' + panelVelocity)
 }
 
+function compareToPage(number) {
+    return Math.floor(number / 16) == viewPage;
+}
 
-function drawSequenceRows() { // updated to use new matrix system
+function drawSequenceRows() {
     var t = getActiveTrack()
     for (i=0;i<8;i++) { // draw top 2 rows
-        if (t.steps[i].on) { 
+        var thisStep = t.steps[i + viewPage * 16]
+        if (thisStep.on) { // first row
             drawCell(i, 0, 15)
-            if (t.steps[i].selected) { drawCell(i, 0, blink ? 10 : 15)}
+            if (thisStep.selected && blink) { drawCell(i, 0, 10) }
         }
-        if (t.steps[i + 8].on) { 
+        if (t.steps[i + 8 + viewPage * 16].on) {  // second row
             drawCell(i, 1, 15) 
-            if (t.steps[i].selected) { drawCell(i, 1, blink ? 10 : 15)}
+            if (thisStep.selected && blink) { drawCell(i, 1, 10) }
         }
     }
-
-    if (getActiveTrack().steps[getActiveTrack().position].on) { // if the step is active
-        drawCell(getXY(getActiveTrack().position)[0], getXY(getActiveTrack().position)[1], 8)
-    } else {
-        drawCell(getXY(getActiveTrack().position)[0], getXY(getActiveTrack().position)[1], 4)
+    if (compareToPage(t.position)) { // if we're viewing the cursor page
+        drawCell(getXY(t.position)[0], getXY(t.position)[1], t.steps[t.position].on ? 8 : 4)
     }
-    if (mod.end) {
-        drawCell( getXY(t.len)[0], getXY(t.len)[1], 15)
-
-    }
+    if (mod.end && Math.floor(t.len / 16) == viewPage) { drawCell( getXY(t.len)[0], getXY(t.len)[1], 15) }
 }
 
 function drawStatusBar() {
     drawRow(0,2,[2,2,2,2]) // tracks background
-    drawCell(active, 2, getActiveTrack().mute ? 4 : 15) // illuminate active track
-    getActiveTrack().pages.forEach(function (e, i) { drawCell(i + 4, 2, getActiveTrack().pages[i] ? 8 : 2) }) // draw page mute states
+    var activeTrack = getActiveTrack()
+    drawCell(active, 2, activeTrack.mute ? 4 : 15) // illuminate active track
+    activeTrack.pages.forEach(function (e, i) { drawCell(i + 4, 2, activeTrack.pages[i] ? 8 : 2) }) // draw page mute states
     drawCell(viewPage + 4, 2, 15)
-    if (blink && playing) { drawCell(Math.floor(getActiveTrack().position / 16) + 4, 2, 13) } // playhead cursor page
+    if (blink && playing) { drawCell(Math.floor(activeTrack.position / 16) + 4, 2, 13) } // playhead cursor page
 }
 
 function drawGlobalBar() {
