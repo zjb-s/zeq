@@ -1,46 +1,43 @@
 /*
 
-zeq beta 0.1 test test
-1/0 and true/false are used interchangeably.
+zeq beta 0.2 
 --
 inlet   0   bang to advance sequences
 --
-outlet  0   play/pause bang
+outlet  0   unused currently
 outlet  1   messages to serialosc
 outlet  2   outputs step information whenever a track triggers
 --
 todo:
-- create a step selection system to edit steps without replacing them
--- implemented this visually only
--- when only one page, not the first one, is unmuted, the playhead doesn't work right.
+-- steps often don't register with their correct velocity / prob values when live playing or editing. step editing seems to work ok
 */
 inlets = 1;
 outlets = 3;
-
-var active;
 var tracks;
-var playing;
-var panelVelocity;
+var panel;
 var mod;
 var renderMatrix;
-var blink;
-var clockCounter;
-var viewPage;
+var clock;
+var doNotTrigger;
 
 function reset() {
-    viewPage = 0;
-    clockCounter = 0
-    blink = false;
-    active = 0;
+    renderMatrix = emptyArray(16).map(function () { return emptyArray(8, 0)}); // this is used to store the grid visually, which is sent to grid by render()
+    panel = { // "default" or panel values to apply to steps
+        velocity: 7,
+        probability: 7,
+        playing: false,
+        page: 0,
+        blink: false,
+        active: 0,
+    };
     tracks = emptyArray(4).map(makeSequence);
-    playing = false;
-    panelVelocity = 7;
     mod = { // modifier key states 
         end: false,
         edit: false,
         shift: false,
     };
-    renderMatrix = emptyArray(16).map(function () { return emptyArray(8, 0)});
+    clock = false; // flip-flop to advance
+    doNotTrigger = [false, false, false, false] // this prevents double-triggering when live playing into the sequencing
     post('\n initialized. ')
     render()
 }
@@ -73,9 +70,9 @@ function makeStep () { // step constructor
     return {
         on: false,
         sample: 0,
-        velocity: panelVelocity,
+        velocity: panel.velocity,
         selected: false,
-        probability: 100
+        probability: panel.probability
     }
 }
 
@@ -104,7 +101,7 @@ function setSequencePosition(sequence, newPosition) {
 }
 
 function getActiveTrack() {
-    return tracks[active]
+    return tracks[panel.active]
 }
 
 function getTrack(which) {
@@ -125,29 +122,34 @@ function getXY(n) { // takes a position 0-15, returns [x,y] for use in grid
 }
 
 function bang() { // advance the sequence, redraw
-    if (playing) {
-        tracks.forEach(function(currentTrack, i) {
-            advanceSequence(currentTrack)
-            if (currentTrack.currentStep.on) {
-                outlet(2, 
-                    currentTrack.currentStep.sample + ' '
-                    + Number( currentTrack.currentStep.velocity * 8 ) + ' '
-                    + i
-                )
-            }
-        })
+    if (panel.playing) {
+        clock = !clock
+        if (clock) {
+            tracks.forEach(function(currentTrack, i) {
+                advanceSequence(currentTrack)
+                var step = currentTrack.currentStep
+                if (step.on && (Math.random() * 7 < step.probability) && !currentTrack.mute && !doNotTrigger[i]) {
+                    outlet(2, 
+                        step.sample + ' '
+                        + Number( step.velocity * 16 ) + ' '
+                        + Number( i + 1 )
+                    )
+                }
+            })
+            panel.blink = !panel.blink
+            render()
+        }
+        doNotTrigger.map(function(e) {e = false;})
     }
-    render()
-    blink = !blink
 }
 
 function editStepSequences(x, y) {
-    var position = (x + y * 8) + (viewPage * 16) // converting x/y info + page info into an integer position
+    var position = (x + y * 8) + (panel.page * 16) // converting x/y info + page info into an integer position
     var activeTrack = getActiveTrack()
     var editStep = activeTrack.steps[position]
     if (mod.end) {
-        activeTrack.len = ((x + y * 8) + (viewPage * 16))
-        post('\n modified end point of track ' + active + ' to ' + activeTrack.len)
+        activeTrack.len = ((x + y * 8) + (panel.page * 16))
+        post('\n modified end point of track ' + panel.active+ ' to ' + activeTrack.len)
     } else if (mod.edit) {
         if (editStep.on) {
             if (mod.shift) {
@@ -159,11 +161,12 @@ function editStepSequences(x, y) {
             post('\n turning step on')
             editStep.on = true;
             editStep.selected = false;
+            editStep.velocity = panel.velocity
+            editStep.probability = panel.probability
         }
     } else {
         editStep.selected = !editStep.selected
     }
-    post('\n step ' + (position) + '.selected = ' + editStep.selected)
 }
 
 function clear() { 
@@ -172,7 +175,7 @@ function clear() {
     if (mod.shift) { // clear all sequences
         tracks = tracks.map(makeSequence)
     } else { // or just the active one
-        tracks[active] = makeSequence()
+        tracks[panel.active] = makeSequence()
     }
     tracks.map(function(e, i) { //reassign positions to their "old" values
         e.position = pos[i]; 
@@ -186,8 +189,8 @@ function changeTrackFocus(x, y) {
         getTrack(x).mute = !getTrack(x).mute // toggle track mute
         post('\n sequence ' + x + ' mute state: ' + getTrack(x).mute)
     } else {
-        active = x
-        post('\n focus sequence ' + active)
+        panel.active = x
+        post('\n focus sequence ' +panel.active)
     }
 }
 
@@ -197,18 +200,20 @@ function randomizeSequence(x, y) {
         tracks.forEach(function(t) {
             t.steps.forEach(function(s) {
                 s.on = Math.random() > 0.5
+                s.velocity = Math.ceil(Math.random() * 8)
             })
         })
     } else { // or just the active one
         getActiveTrack().steps.forEach(function(element) {
             element.on = Math.random() > 0.5
+            element.velocity = Math.ceil(Math.random() * 9)
         })
     }
 }
 
 function playPause() {
-    playing = !playing
-    if (!playing) {
+    panel.playing = !panel.playing
+    if (!panel.playing) {
         //for (i=0;i<4;i++) { tracks[i].position = tracks[i].len }
         tracks.forEach(setSequenceToEnd)
     }
@@ -231,7 +236,7 @@ function pageKey(x, y) {
     } else if (mod.end) {
         activeTrack.len = (16 * (x - 4)) + 15
     } else {
-        viewPage = x - 4
+        panel.page = x - 4
     }
 }
 
@@ -251,6 +256,8 @@ function key(x, y) {
         editSamplePads(x, y)
     } else if (x == 7 && y > 3 && y < 12) { // adjust velocity
         editVelocity(y)
+    } else if (x == 6 && y > 3 && y < 12) {
+        editProbability(y)
     } else if (x == 7 && y == 15) { // play/pause button
         playPause()     
     }
@@ -267,11 +274,15 @@ function gridKey(input) { // general grid button functionality
 }
 
 function editSamplePads(x, y) { // process presses on the sample pads
-    var editStep = getTrack(x).steps[getTrack(x).position]
+    // if clock is false, we're in the second half of the step, so select the next one (round to nearest step)
+    var editStep = getTrack(x).steps[getTrack(x).position + (clock ? 0 : 1)] 
+    doNotTrigger[x] = !clock
+
     if (mod.edit) {
         editStep.on = true
-        editStep.velocity = panelVelocity
+        editStep.velocity = panel.velocity
         editStep.sample = 11 - y
+        outlet(2, Number(11-y) + ' ' + Number(panel.velocity*16) + ' ' + Number(x+1)) // play midi note
     }
     if (!mod.edit || (mod.edit && mod.shift)) {
         getTrack(x).activeSample = 11 - y
@@ -279,39 +290,57 @@ function editSamplePads(x, y) { // process presses on the sample pads
 }
 
 function editVelocity(y) {
-    panelVelocity = (11 - (y))
-    post('\n panelVelocity: ' + panelVelocity)
+    panel.velocity = (11 - (y))
+    updateSelectedSteps()
+    post('\npanel velocity: '+panel.velocity)
 }
 
-function compareToPage(number) {
-    return Math.floor(number / 16) == viewPage;
+function editProbability(y) {
+    panel.probability = (11 - (y))
+    updateSelectedSteps()
+    post('\npanel probability: '+panel.probability)
 }
 
-function drawSequenceRows() { // todo: not rendering bottom row selections correctly
+function updateSelectedSteps() {
+    tracks.forEach(function(t) {
+        t.steps.map(function(step, i) {
+            if (step.selected) {
+                step.velocity = panel.velocity
+                step.probability = panel.probability
+            }
+        })
+    })
+}
+
+function stepIsOnPage(number) {
+    return Math.floor(number / 16) == panel.page;
+}
+
+function drawSequenceRows() { 
     var t = getActiveTrack()
     for (i=0;i<8;i++) { // draw top 2 rows
-        var thisStep = t.steps[i + viewPage * 16]
-        var thisStep2 = t.steps[i + 8 + viewPage * 16]
+        var thisStep = t.steps[i + panel.page * 16]
+        var thisStep2 = t.steps[i + 8 + panel.page * 16]
         if (thisStep.on) { // first row
-            drawCell(i, 0, (thisStep.selected && blink) ? 10 : 15)
+            drawCell(i, 0, (thisStep.selected && panel.blink) ? 10 : 15)
         }
         if (thisStep2.on) {  // second row
-            drawCell(i, 1, (thisStep2.selected && blink) ? 10 : 15)
+            drawCell(i, 1, (thisStep2.selected && panel.blink) ? 10 : 15)
         }
     }
-    if (compareToPage(t.position)) { // if we're viewing the cursor page
+    if (stepIsOnPage(t.position)) { // if we're viewing the cursor page
         drawCell(getXY(t.position)[0], getXY(t.position)[1], t.steps[t.position].on ? 8 : 4) // draw the cursor
     }
-    if (mod.end && Math.floor(t.len / 16) == viewPage) { drawCell( getXY(t.len)[0], getXY(t.len)[1], 15) } // if endpoint key is held, show the endpoint
+    if (mod.end && Math.floor(t.len / 16) == panel.page) { drawCell( getXY(t.len)[0], getXY(t.len)[1], 15) } // if endpoint key is held, show the endpoint
 }
 
 function drawStatusBar() {
     drawRow(0,2,[2,2,2,2]) // tracks background
     var activeTrack = getActiveTrack()
-    drawCell(active, 2, activeTrack.mute ? 4 : 15) // illuminate active track
+    drawCell(panel.active, 2, activeTrack.mute ? 4 : 15) // illuminate active track
     activeTrack.pages.forEach(function (e, i) { drawCell(i + 4, 2, activeTrack.pages[i] ? 8 : 2) }) // draw page mute states
-    drawCell(viewPage + 4, 2, 15)
-    if (blink && playing) { drawCell(Math.floor(activeTrack.position / 16) + 4, 2, 13) } // playhead cursor page
+    drawCell(panel.page + 4, 2, 15)
+    if (panel.blink && panel.playing) { drawCell(Math.floor(activeTrack.position / 16) + 4, 2, 13) } // playhead cursor page
 }
 
 function drawGlobalBar() {
@@ -319,19 +348,24 @@ function drawGlobalBar() {
     drawCell(1, 15, mod.edit ? 15 : 4) // edit
     drawCell(3, 15, mod.end ? 15 : 4) // endpoint
     drawRow(4, 15, [4, 4])
-    drawCell(7, 15, playing ? 15 : 4) // playing
+    drawCell(7, 15, panel.playing ? 15 : 4) // playing
 }
 
 function drawVelocityBar() {
     drawColumn(7, 4, [4,4,4,4,4,4,4,4])
-    drawCell(7, 11 - panelVelocity, 15)
+    drawCell(7, 11 - panel.velocity, 15)
+}
+
+function drawProbabilityBar() {
+    drawColumn(6, 4, [4,4,4,4,4,4,4,4])
+    //post('\n'+panel.probability)
+    drawCell(6, 11 - panel.probability, 15)
 }
 
 function drawSamplePads() {
     var background = mod.edit ? [4,4,4,4,4,4,4,4] : [2,2,2,2,2,2,2,2]
     var foreground = mod.edit ? 15 : 10
     for (var i = 0; i < 4; i++) {
-        //post('\n drawing column at ' + i)
         drawColumn(i, 4, background)
         drawCell(i, 11 - getTrack(i).activeSample, foreground)
     }
@@ -349,7 +383,9 @@ function drawColumn (x, y, vals) {
 }
 function drawCell(x, y, val) {
     //post('\n drawCell: [' + x + ', ' + y + '] = ' + val)
-    if (typeof x === 'number' && typeof y === 'number' && typeof val === 'number') { renderMatrix[y][x] = val }
+    if (typeof x === 'number' && typeof y === 'number' && typeof val === 'number') {
+        if (x < 8 && y < 16) { renderMatrix[y][x] = val } // make sure x and y are on the grid
+    }
 }
 function render() { // concatenate matrix into osc, then send
 
@@ -358,6 +394,7 @@ function render() { // concatenate matrix into osc, then send
     drawStatusBar()
     drawGlobalBar()
     drawVelocityBar()
+    drawProbabilityBar()
     drawSamplePads()
     
 
@@ -368,6 +405,7 @@ function render() { // concatenate matrix into osc, then send
     var topHalf = concatRows.slice(0,8).join(' ')
     var bottomHalf = concatRows.slice(8,16).join(' ')
 
+    // then send:
     outlet(1, '/monome/grid/led/level/map 0 0 ' + topHalf) // top half
     outlet(1, '/monome/grid/led/level/map 0 8 ' + bottomHalf) // bottom half
     //post('\n rendered.')
