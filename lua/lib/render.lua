@@ -117,7 +117,7 @@ function Render:sequences()
             end
             if (util.round_up(t.position / 16, 1) == panel.pages[i]) and (params:get('playing') == 1) then -- if cursor is on currently viewed page...
                 local x = util.wrap(t.position, 1, 8)
-                y = (((util.wrap(t.position, 1, 16) > 8) and 2 or 1) + i * 2) - 2 -- probably a better way to do this lol todo
+                y = (((util.wrap(t.position, 1, 16) > 8) and 2 or 1) + i * 2) - 2 -- probably a better way to do this lol //todo1
                 g:led(x, y, t.steps[t.position].on and 8 or 4) -- 8 if step is off, 4 if on
                 if mod.Endpoint then 
                     g:led(x, (((util.wrap(t.position, 1, 16) > 8) and 2 or 1) + i * 2) - 2)

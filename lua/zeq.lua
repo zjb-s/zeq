@@ -1,4 +1,16 @@
+[[
+zeq beta 0.2 (lua edition)
+by zbs, with love to the norns study group
+roadmap:
+    implement a sampler engine
+    add p-lock functionality by holding down steps (shouldn't be hard)
+    better screen visuals
+    fix rendering track positions on screen
+    change live recording notification to something better
+    fix this weird line: //todo1 in render.lua
+]]
 g = grid.connect()
+m = midi.connect()
 local keys = include('zeq/lib/keys')
 local render = include('zeq/lib/render')
 
@@ -51,8 +63,9 @@ function tick()
             for i=1,4 do 
                 tracks[i]:advance() 
                 local s = tracks[i].steps[tracks[i].position]
-                if s.on then 
-                    --todo: implement engine & midi
+                if s.on and math.random() < s.probability / 100 then 
+                    m:note_on(s.sample, s.velocity, i)
+                    --todo: implement engine
                 end
             end
             render:go()

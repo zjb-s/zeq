@@ -1,29 +1,31 @@
-# zeq
-performance sequencer for monome grid 128
-![IMG_1831](https://user-images.githubusercontent.com/86270534/143897927-23e6f200-a8dd-4e8b-ba92-0aa80ba8b137.jpg)
+# zeq beta 0.2
+performance sequencer for norns & grid 128
 
 # what?
 **zeq** is:
-- still an infant
-- short for ezequiel
 - a performance sequencer, inspired by the way i use my octatrack
-- 4 tracks of 1 - 16 steps each
-- vertically oriented
+- 4 tracks of 1 - 64 steps each
 
-# overview
-The top 2 rows of the grid are the sequence display, representing the active steps in the currently active track
-The third row's left siide is the track selector. Each of the 4 illuminated keys represents a track to show on the step display.
-The third row's right side is the page selector. Each of the 4 illuminated keys represents a "page" of the sequence (steps 1-16, 17-32, 33-48, 49-64)
-The left-middle block of keys is 4 vertical sliders. Each one selects a sample for the track directly above it.
-The right-middle slider adjusts velocity.
-The bottom row contains global and modifier keys. From left to right, they are:
-- Shift: Gives each key on the grid different functionality. (table coming soon)
-- Edit: Toggles edit mode, where you can live-play sample pads and edit the step sequence.
-- Endpoint: While holding, press a step to set the sequence endpoint, where it will loop to the beginning.
-- Randomize: Randomize active track's trigs.
-- Clear: clear active track's trigs.
-- Transport: play/pause.
+# use
+- the **left half** of the grid shows 4 **sequence lanes**. one for each track. you can add steps by poking the sequence keys.
+- the **center column** is the **track select**. Currently, selecting a track doesn't do anything, but you can mute tracks with shift+track.
+- the far **right column** is the **global** panel. from top to bottom:
+- - shift: hold this to access a second layer of functionality on the grid. mute tracks or pages, etc.
+- - endpoint: hold this and press a step or page to set each track's endpoint
+- - page / sample mode toggle: switched between grid view modes.
+- **right side** blocks:
+- - in **sample mode** (default) these show the 8 samples available on each track. pressing one of them selects that sample, for use in step sequencing. you can also live record into the sequence using these pads.
+- - in **pages** mode, these show the 4 pages for each track. you can view, mute and unmute (shift)the pages by pressing them.
 
 
 
 # in progress
+roadmap:
+- better readme with graphics
+- implement a sampler engine
+- add p-lock functionality by holding down steps (shouldn't be hard)
+- better screen visuals
+- fix rendering track positions on screen
+- change live recording notification to something better
+- fix this line: //todo1 in render.lua
+- add more view modes (currently only 1)

@@ -7,10 +7,12 @@ local Keys = {}
 function Keys:playPause()
     if params:get('playing') == 1 then 
         panel.post = 'stop'
+        m:stop()
         params:set('playing', 0)
         for i=1,4 do tracks[i].position = tracks[i].len end
     else
         panel.post = 'play'
+        m:start()
         params:set('playing', 1)
     end
     panel.counter = 0
