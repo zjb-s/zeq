@@ -1,4 +1,4 @@
-[[
+--[[
 zeq beta 0.2 (lua edition)
 by zbs, with love to the norns study group
 roadmap:
