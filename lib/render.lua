@@ -1,19 +1,19 @@
 Render = {}
 
 function Render:go()
-    Render:screen()
+    renderScreen()
 
     g:all(0)
 
-    Render:trackSelect()
-    Render:sequences()
-    Render:samplePads()
-    Render:globals()
+    trackSelect()
+    sequences()
+    samplePads()
+    globals()
 
     g:refresh()
 end
 
-function Render:screen()
+function renderScreen()
     screen.clear()
 
     -- progress bars rectangle
@@ -63,7 +63,7 @@ function Render:screen()
     screen.update()
 end
 
-function Render:samplePads()
+function samplePads()
     for i=1,4 do
         local t = tracks[i]
         for x=1,4 do
@@ -85,7 +85,7 @@ function Render:samplePads()
     end
 end
 
-function Render:trackSelect()
+function trackSelect()
     for i=1,4 do
         local val
         val = i == panel.active and 15 or 4
@@ -101,7 +101,7 @@ function Render:trackSelect()
     end
 end
 
-function Render:sequences()
+function sequences()
     if panel.mode == 4 then -- if viewing 4 tracks
         for i=1, 4 do -- for each track
             local t = tracks[i]
@@ -120,18 +120,23 @@ function Render:sequences()
                 y = (((util.wrap(t.position, 1, 16) > 8) and 2 or 1) + i * 2) - 2 -- probably a better way to do this lol //todo1
                 g:led(x, y, t.steps[t.position].on and 8 or 4) -- 8 if step is off, 4 if on
                 if mod.Endpoint then 
-                    g:led(x, (((util.wrap(t.position, 1, 16) > 8) and 2 or 1) + i * 2) - 2)
+                    g:led(
+                        util.wrap(t.len, 1, 8),
+                        (((util.wrap(t.len, 1, 16) > 8) and 2 or 1) + i * 2) - 2,
+                        (t.position == t.len and 15 or 10)
+                    )
                 end
             end
         end
     end
 end
 
-function Render:globals() 
+function globals() 
     g:led(16, 1, mod.shift and 15 or 8) -- shift key
-    g:led(16, 2, mod.Endpoint and 15 or 8) -- endpoint key
     g:led(16, 4, mod.showPages and 15 or 4)
     g:led(16, 5, not mod.showPages and 15 or 4) -- show pages toggle
+    g:led(16, 7, mod.Endpoint and 15 or 8) -- endpoint key
+    g:led(16, 8, mod.clear and 15 or 8) -- clear key
 end
 
 return Render;

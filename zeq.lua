@@ -22,20 +22,34 @@ function init()
         active = 1,
         mode = 4,
         post = 'initialized!',
-        counter = 1
+        counter = 1,
+        dirty = true
     }
     mod = {
         Endpoint = false,
         edit = false,
         shift = false,
-        showPages = false
+        showPages = false,
+        clear = false,
     }
     tracks = {}
     for i=1,4 do tracks[i] = makeSequence() end
-    print('zeq initialized!')
 
+
+    clock.run(renderClock)
     clock.run(tick)
-    render:go()
+
+    print('zeq started with no errors!')
+end
+
+function renderClock() 
+    while true do 
+        clock.sleep(1/30)
+        if panel.dirty then
+            render:go()
+            panel.dirty = false
+        end
+    end
 end
 
 function addParams()
@@ -68,7 +82,7 @@ function tick()
                     --todo: implement engine
                 end
             end
-            render:go()
+            panel.dirty = true
         end
     end
 end
@@ -98,9 +112,7 @@ function makeSequence()
         else
             local newPosition = self.position + steps
             for i=1,4 do
-                if not self.pages[util.wrap(util.round_up((newPosition / 16), 1), 1, 4)] then 
-                    print('util.round_up(newPosition / 16, 1) = ' .. util.round_up(newPosition / 16, 1))
-                    print('page ' .. i .. ' is muted')
+                if not self.pages[util.wrap(util.round_up((newPosition / 16), 1), 1, 4)] then -- if the page is muted...
                     newPosition = newPosition + 16
                 end
             end
@@ -118,7 +130,7 @@ function makeStep()
         velocity = params:get('velocity'),
         selected = false,
         probability = params:get('probability'),
-        inTrack = 1
+        timer = nil,
     }
 end
 
@@ -142,12 +154,14 @@ function g.key(x,y,z)
         keys:pages()
     elseif x == 16 and y == 1 then
         keys:shift()
-    elseif x == 16 and y == 2 then
+    elseif x == 16 and y == 7 then
         keys:Endpoint()
     elseif x == 16 and y > 3 and y < 6 and z == 1 then 
         keys:showPages()
+    elseif x == 16 and y == 8 then
+        keys:clear()
     end
-    render:go()
+    panel.dirty = true
 end
 
 function enc(n,d)
@@ -158,7 +172,7 @@ function enc(n,d)
         params:delta('probability', d)
         panel.post = 'probability: ' .. params:get('probability') .. '%'
     end
-    render:go()
+    panel.dirty = true
 end
 
 function key(n, d)
@@ -169,5 +183,5 @@ function key(n, d)
             keys:toggleRec()
         end
     end
-    render:go()
+    panel.dirty = true
 end
