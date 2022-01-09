@@ -1,9 +1,9 @@
 # zeq beta 0.2
-performance sequencer for norns & grid 128
+atonal performance sequencer for norns & grid 128
 
 # what?
 **zeq** is:
-- a performance sequencer, inspired by the way i use my octatrack
+- a performance sequencer for atonal sounds, inspired by the way i use my octatrack
 - 4 tracks of 1 - 64 steps each
 
 # use
