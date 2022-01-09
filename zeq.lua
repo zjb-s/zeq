@@ -28,7 +28,8 @@ function init()
         Endpoint = false,
         edit = false,
         shift = false,
-        showPages = false
+        showPages = false,
+        clear = false,
     }
     tracks = {}
     for i=1,4 do tracks[i] = makeSequence() end
@@ -98,9 +99,7 @@ function makeSequence()
         else
             local newPosition = self.position + steps
             for i=1,4 do
-                if not self.pages[util.wrap(util.round_up((newPosition / 16), 1), 1, 4)] then 
-                    print('util.round_up(newPosition / 16, 1) = ' .. util.round_up(newPosition / 16, 1))
-                    print('page ' .. i .. ' is muted')
+                if not self.pages[util.wrap(util.round_up((newPosition / 16), 1), 1, 4)] then -- if the page is muted...
                     newPosition = newPosition + 16
                 end
             end
@@ -118,7 +117,7 @@ function makeStep()
         velocity = params:get('velocity'),
         selected = false,
         probability = params:get('probability'),
-        inTrack = 1
+        timer = nil,
     }
 end
 
@@ -142,10 +141,12 @@ function g.key(x,y,z)
         keys:pages()
     elseif x == 16 and y == 1 then
         keys:shift()
-    elseif x == 16 and y == 2 then
+    elseif x == 16 and y == 7 then
         keys:Endpoint()
     elseif x == 16 and y > 3 and y < 6 and z == 1 then 
         keys:showPages()
+    elseif x == 16 and y == 8 then
+        keys:clear()
     end
     render:go()
 end

@@ -120,7 +120,11 @@ function Render:sequences()
                 y = (((util.wrap(t.position, 1, 16) > 8) and 2 or 1) + i * 2) - 2 -- probably a better way to do this lol //todo1
                 g:led(x, y, t.steps[t.position].on and 8 or 4) -- 8 if step is off, 4 if on
                 if mod.Endpoint then 
-                    g:led(x, (((util.wrap(t.position, 1, 16) > 8) and 2 or 1) + i * 2) - 2)
+                    g:led(
+                        util.wrap(t.len, 1, 8),
+                        (((util.wrap(t.len, 1, 16) > 8) and 2 or 1) + i * 2) - 2,
+                        (t.position == t.len and 15 or 10)
+                    )
                 end
             end
         end
@@ -129,9 +133,10 @@ end
 
 function Render:globals() 
     g:led(16, 1, mod.shift and 15 or 8) -- shift key
-    g:led(16, 2, mod.Endpoint and 15 or 8) -- endpoint key
     g:led(16, 4, mod.showPages and 15 or 4)
     g:led(16, 5, not mod.showPages and 15 or 4) -- show pages toggle
+    g:led(16, 7, mod.Endpoint and 15 or 8) -- endpoint key
+    g:led(16, 8, mod.clear and 15 or 8) -- clear key
 end
 
 return Render;
